@@ -1,8 +1,7 @@
 # Análise e Implementação de Transformadores Visuais: Uma Abordagem Moderna para Reconhecimento de Imagens Baseada em Atenção
 
-# resumo do modelo
+Neste artigo, analisamos o trabalho pioneiro "Uma imagem vale 16x16 palavras: transformadores para reconhecimento de imagem em escala" publicado na ICLR, que revolucionou a abordagem do processamento de imagens através da adaptação da arquitetura de transformadores para visão computacional. Reproduzimos a implementação desta metodologia, focando especialmente na divisão de imagens em patches de 16x16 e sua transformação em tokens visuais, demonstrando como esta abordagem supera as limitações das redes neurais convolucionais tradicionais. Este artigo tem como objetivo fornecer aos pesquisadores e profissionais (1) uma compreensão aprofundada de como os transformadores podem ser efetivamente adaptados para tarefas de visão computacional, eliminando a necessidade de arquiteturas convolucionais complexas, e (2) uma análise detalhada de como a atenção visual baseada em patches pode ser implementada para criar modelos de reconhecimento de imagem mais eficientes e escaláveis.
 
-https://arxiv.org/pdf/2010.11929
 ![image](https://github.com/user-attachments/assets/f87cb646-8a58-4dd5-b814-b1eee75b0ddc)
 
 # Introdução ao o que e um vit
