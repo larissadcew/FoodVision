@@ -10,8 +10,6 @@ Uma arquitetura moderna de aprendizado profundo geralmente é uma coleção de c
 
 ![image](https://github.com/user-attachments/assets/18ae4852-74da-47c8-bd8e-b734d05cba5d)
 
-Vamos começar examinando a Figura 1 do ViT Paper
-As principais coisas às quais prestaremos atenção são:
 
 - Camadas - recebe uma entrada, executa uma operação ou função na entrada, produz uma saída.
 - Blocos - uma coleção de camadas, que por sua vez também recebe uma entrada e produz uma saída.
@@ -26,122 +24,175 @@ As principais coisas às quais prestaremos atenção são:
 - MLP (ou perceptron multicamada) - Um MLP geralmente pode se referir a qualquer coleção de camadas feedforward (ou, no caso do PyTorch, uma coleção de camadas com um método). No ViT Paper, os autores se referem ao MLP como "bloco MLP" e contém duas camadas torch.nn.Linear() com uma ativação de não linearidade torch.nn.GELU() entre elas (seção 3.1) e uma camada torch.nn.Dropout() após cada uma (Apêndice B.1).forward()
 - Transformer Encoder - O Transformer Encoder é uma coleção das camadas listadas acima. Existem duas conexões de salto dentro do codificador Transformer (os símbolos "+"), o que significa que as entradas da camada são alimentadas diretamente para as camadas imediatas, bem como para as camadas subsequentes. A arquitetura ViT geral é composta por vários codificadores Transformer empilhados uns sobre os outros.
 - MLP Head - Esta é a camada de saída da arquitetura, ela converte os recursos aprendidos de uma entrada em uma saída de classe. Como estamos trabalhando na classificação de imagens, você também pode chamar isso de "cabeça do classificador". A estrutura do MLP Head é semelhante ao bloco MLP.
-  
-![image](https://github.com/user-attachments/assets/0130d970-645d-484a-b751-fff0ea761721)
 
-Essas quatro equações representam a matemática por trás das quatro partes principais da arquitetura ViT.
+  # Explorando as Quatro Equações:
+  ![image](https://github.com/user-attachments/assets/a83ec89e-98be-4953-bd12-f38fe06e7352)
+
+  Essas quatro equações representam a matemática por trás das quatro partes principais da arquitetura ViT.
 
 A seção 3.1 descreve cada um deles (parte do texto foi omitido por brevidade, o texto em negrito é meu):
-![image](https://github.com/user-attachments/assets/d7b112df-6a10-4092-8692-f35440436572)
 
-![image](https://github.com/user-attachments/assets/46cde5dd-c1d3-4ec0-9dcd-696d784ce454)
 
+(1) : O Transformer usa tamanho de vetor latente constante $D$ em todas as suas camadas, então achatamos os patches e mapeamos para dimensões $D$ com uma projeção linear treinável (Eq. 1). Referimo-nos à saída desta projeção como as incorporações de patch... As incorporações de posição são adicionadas às incorporações de patch para reter informações posicionais. Usamos incorporações de posição 1D padrão que podem ser aprendidas..
+
+(2) :O codificador Transformer (Vaswani et al., 2017) consiste em camadas alternadas de autoatenção de várias cabeças (MSA, consulte o Apêndice A) e blocos MLP (Eq. 2, 3). Layernorm (LN) é aplicado antes de cada bloco e conexões residuais após cada bloco (Wang et al., 2019; Baevski & Auli, 2019).
+
+(3) :O mesmo que a equação 2.
+
+(4):Semelhante ao token [ class ] do BERT, precedemos uma incorporação que pode ser aprendida na sequência de patches incorporados $\left(\mathbf{z}_{0}^{0}=\mathbf{x}_{\text {class }}\right)$, cujo estado na saída do codificador Transformer $\left(\mathbf{z}_{L}^{0}\right)$ serve como a representação da imagem $\mathbf{y}$ (Eq. 4)..
+
+Vamos mostrrar como isso se apica :
+![image](https://github.com/user-attachments/assets/f5242bc7-8e81-4e4e-9175-2c76fb421f0f)
 Conectando a Figura 1 do artigo ViT às quatro equações da seção 3.1 que descrevem a matemática por trás de cada uma das camadas / blocos.
-
 Há muita coisa acontecendo na imagem acima, mas seguir as linhas coloridas e setas revela os principais conceitos da arquitetura ViT.
 
-Que tal dividirmos cada equação ainda mais (será nosso objetivo recriá-las com código)?
+# DIVIDINDO as 4 equaçoes ainda MAIS:
 
-Em todas as equações (exceto a equação 4), "$\mathbf{z}$" é a saída bruta de uma camada específica.
+# Visão geral da equação 1:
 
+Esta equação lida com o token de classe, a incorporação de patch e a incorporação de posição ($\mathbf{E}$ é para incorporação) da imagem de entrada.
 
-Visão geral da equação 1
+Na forma vetorial, a incorporação pode ser algo como
 
-````
-  z₀ = [x_class; x_p^1E; x_p^2E; ...; x_p^NE] + E_pos
-````
-- z₀: Representa a saída da camada inicial de incorporação de patch. É o vetor que contém a representação inicial da imagem.
-- x_class: É o token de classe, um vetor que representa a classe da imagem inteira.
-- x_p^i: É o i-ésimo patch da imagem, após ser transformado em um vetor.
-- E: É a matriz de incorporação que mapeia os patches para um espaço de representação de dimensão D.
-- E_pos: É a matriz de incorporação de posição, que adiciona informações sobre a posição espacial de cada patch.
-  ![image](https://github.com/user-attachments/assets/d2b65ee4-a6ae-4931-9a7b-37c839a2a236)
-  Onde cada um dos elementos no vetor pode ser aprendido (seu ).requires_grad=True
+x_input = [class_token, image_patch_1, image_patch_2, image_patch_3...] + [class_token_position, image_patch_1_position, image_patch_2_position, image_patch_3_position...]
 
-  Visão geral da equação 2(Bloco MSA na ViT)
+# Visão geral da equação 2:
 
-  ```
-  zₗ' = MSA(LN(zₗ₋₁)) + zₗ₋₁
+Isso diz que para cada camada de $1$ a $L$ (o número total de camadas), há uma camada de atenção de várias cabeças (MSA) envolvendo uma camada LayerNorm (LN).
 
-  ```
-  zₗ': Representa a saída do bloco MSA na camada l.
-  MSA: É a função de atenção multi-cabeça. Ela calcula a importância relativa de diferentes partes da entrada.
-  LN: É a normalização por camada (Layer Normalization), que ajuda a estabilizar o treinamento da rede neural.
-  zₗ₋₁: É a saída da camada anterior.
-  - Normalização: A entrada da camada (zₗ₋₁) passa por uma normalização por camada. Isso ajuda a manter os valores das ativações em uma faixa razoável, acelerando o treinamento e melhorando a estabilidade.
-  -  Atenção Multi-Cabeça: A saída da normalização é então processada pela camada de atenção multi-cabeça. Essa camada permite que o modelo aprenda relações complexas entre diferentes partes da entrada. Cada     "cabeça" de atenção se concentra em diferentes aspectos da entrada, aumentando a capacidade do modelo de capturar informações relevantes.
-  -  . Conexão Residual: A saída da camada de atenção é adicionada à entrada original (zₗ₋₁). Essa técnica, conhecida como conexão residual, ajuda a aliviar o problema do gradiente vanishing, permitindo que o modelo aprenda representações mais profundas.
- ![image](https://github.com/user-attachments/assets/d240f278-c0e8-46b6-9238-c5f90b8b6631)
+A adição no final é o equivalente a adicionar a entrada à saída e formar uma conexão de salto / residual.
 
-  ```
-   zₗ = MLP(LN(zₗ')) + zₗ'
-  ```
-- zₗ: Representa a saída final do bloco MLP na camada l. É a informação que sai desse bloco e será utilizada nas próximas camadas ou na saída final do modelo.
-- MLP: É a camada Multilayer Perceptron, uma rede neural feedforward com múltiplas camadas. Ela é responsável por aplicar transformações não-lineares aos dados, aprendendo representações mais complexas.
-- LN: É a camada de normalização por camada (Layer Normalization). Ela normaliza os valores de entrada para cada neurônio, ajudando a estabilizar o treinamento e acelerar a convergência.
-- zₗ': É a saída do bloco MSA da camada l. Essa saída, que já contém informações sobre as relações entre os diferentes elementos da entrada, serve como entrada para o bloco MLP.
+No pseudocódigo, isso pode ser semelhante a:
+x_output_MSA_block = MSA_layer(LN_layer(x_input)) + x_input
 
-  ```
-   y = LN(z_L^0)Mapeando a parte de incorporação de patch e posição da arquitetura ViT da Figura 1 à Equação 1. O parágrafo de abertura da seção 3.1 descreve as diferentes formas de entrada e saída da camada de incorporação de patch.
-  ```
-  - y: Representa a saída final do modelo. É o vetor que contém as informações sobre a classificação da imagem ou qualquer outra tarefa.
-  - LN: É a camada de normalização por camada (Layer Norm). Ela normaliza os valores de entrada, ajudando a estabilizar o treinamento e melhorar o desempenho.
-  - z_L^0: Representa o token de classe na última camada (L). O token de classe é um vetor especial que foi adicionado no início da sequência e contém informações sobre a classificação da imagem inteira.
+Observe a conexão de salto no final (adicionando a entrada das camadas à saída das camadas).
+
+# Visão geral da equação 3:
+
+Isso diz que para cada camada de $1$ a $L$ (o número total de camadas), há também uma camada Multilayer Perceptron (MLP) envolvendo uma camada LayerNorm (LN).
+
+A adição no final mostra a presença de uma conexão de salto / residual.
+
+Chamaremos essa camada de "bloco MLP".
+
+No pseudocódigo, isso pode ser semelhante a:
+
+x_output_MLP_block = MLP_layer(LN_layer(x_output_MSA_block)) + x_output_MSA_block
+
+# Visão geral da equação 4:
+
+Isso diz que para a última camada $L$, a saída $y$ é o token de índice 0 de $z$ encapsulado em uma camada LayerNorm (LN).
+
+Ou, no nosso caso, o índice 0 de :x_output_MLP_block
+
+y = Linear_layer(LN_layer(x_output_MLP_block[0]))
+
+É claro que existem algumas simplificações acima, mas cuidaremos delas quando começarmos a escrever o código PyTorch para cada seção.
 
 
-1.incorporação do patch.
+# Explorando a Tabela 1(None)
 
-Isso significa que transformaremos nossas imagens de entrada em uma sequência de patches e, em seguida, incorporaremos esses patches.
-
-Começaremos seguindo o parágrafo de abertura da seção 3.1 do artigo ViT:
-
-"O Transformer padrão recebe como entrada uma sequência 1D de incorporações de tokens. Para lidar com imagens 2D, remodelamos a imagem x∈R H×W×C em uma sequência de patches 2D achatados x p ∈R N×(P 2⋅C),onde (H,W) é a resolução da imagem original, C é o número de canais (P,P) é a resolução de cada patch de imagem e N=HW/P 2 é o número resultante de patches, que também serve como o comprimento efetivo da sequência de entrada para o Transformer.O Transformer usa tamanho de vetor latente constante D em todas as suas camadas, então nivelamos os patches e mapeamos para dimensões de D com uma projeção linear treinável (Eq. 1).Referimo-nos à saída dessa projeção como as incorporações de patch."
-
-Vamos decifrar isso:
-
-- imagem de Entrada: Uma imagem com altura H largura W e C canais a W e C canais (ex: RGB tem 3 canais) é representada como  x∈ R H×W×C.
-
-- Divisão em Patches: A imagem é dividida em N patches, cada um com resolução P×P.Cada patch tem tamanho P 2⋅C (pixels vezes o número de canais).A sequência de patches achatados é representada como xp ∈R N×(P 2⋅C).
-​
-- Número de Patches:O número total de patches N é calculado como  N = P 2 H×W
-
-- Incorporação de Patch: Cada patch é então linearmente projetado para um espaço de dimensão D. Essa projeção é treinável, o que significa que os pesos dessa projeção são aprendidos durante o treinamento do modelo. O resultado dessa projeção é chamado de "incorporação de patch".
+# Equação 1: Divida os dados em patches e crie a classe, posição e incorporação de patch.
 
 
-Incorporações de Classe e Posição:
+Começaremos com a incorporação do patch.Isso significa que transformaremos nossas imagens de entrada em uma sequência de patches e, em seguida, incorporaremos esses patches.
+Lembre-se de que uma incorporação é uma representação que pode ser aprendida de alguma forma e geralmente é um vetor.O termo aprendível é importante porque significa que a representação numérica de uma imagem de entrada (que o modelo vê) pode ser melhorada ao longo do tempo.
 
-Além das incorporações de patch, o ViT utiliza:
+Essa técnica permite que um modelo Transformer, originalmente projetado para processar sequências 1D (como texto), trabalhe com dados 2D (imagens) ao converter a imagem em uma sequência de vetores que representam partes menores da imagem.
 
-- Incorporação de Classe: Um token especial de "classe" é adicionado à sequência de incorporações de patch. A representação deste token após passar pelo Transformer serve como a representação da imagem inteira para tarefas de classificação.
+Começaremos seguindo o parágrafo de abertura da seção 3.1 do artigo ViT (negrito meu):
 
-- Incorporação de Posição: Como os Transformers não têm noção inerente de ordem sequencial, incorporações de posição são adicionadas às incorporações de patch para fornecer informações sobre a posição relativa dos patches na imagem original.
+```
+O Transformer padrão recebe como entrada uma sequência 1D de incorporações de tokens. Para lidar com imagens 2D, remodelamos a imagem $\mathbf{x} \in \mathbb{R}^{H \times W \times C}$ em uma sequência de patches 2D achatados $\mathbf{x}_{p} \in \mathbb{R}^{N \times\left(P^{2} \cdot C\right)}$, onde $(H, W)$ é a resolução da imagem original, $C$ é o número de canais, $(P, P)$ é a resolução de cada patch de imagem e $N=H W / P^{2}$ é o número resultante de patches, que também serve como o comprimento efetivo da sequência de entrada para o Transformer. O Transformer usa tamanho de vetor latente constante $D$ em todas as suas camadas, então nivelamos os patches e mapeamos para dimensões de $D$ com uma projeção linear treinável (Eq. 1). Referimo-nos à saída dessa projeção como as incorporações de patch
+```
+E tamanho estamos lidando com formas de imagem, vamos ter em mente a linha da Tabela 3 do artigo ViT:
+```
+A resolução do treinamento é 224.
 
-  Exemplo Prático:
-  ### Imagine uma imagem de 224x224 pixels (como mencionado na Tabela 3 do artigo) e patches de 16x16 pixels:
-  - H=224, W=224, P=16
-  - N = 16×16 = 196 patches
-       224×224
-  Cada patch é então transformado em um vetor de tamanho D (o valor de D depende da configuração do modelo ViT, veja a Tabela 1 do artigo)
+```
+Detalhando todas as partes:
 
-
-
-
-
-![image](https://github.com/user-attachments/assets/fba1bd66-31db-400e-9420-07899bfb4264)
-
-
+Você começa com uma imagem representada por x ∈ RH×W×C,onde:
+- H é a altura da imagem em pixels.
+- W é a largura da imagem em pixels.
+- C é o número de canais de cor (ex: 3 para RGB)
   
+### Dividindo em patches:
+
+Ao invés de tratar a imagem inteira como uma única entrada, ela é dividida em pequenos pedaços quadrados chamados patches. Cada patch tem resolução.
+
+### Criando a sequência:
+Esses patches 2D são então "achatados" em vetores 1D. Imagine pegar cada quadrado e esticar seus pixels em uma linha. Isso resulta em xp ∈ Rn×(P2⋅C),onde:
+
+- N = HW/P2  é o número total de patches. Como a imagem original tem H×W pixels e cada patch tem P×P pixels, o número de patches é a divisão da área total pela área de cada patch.
+- P2⋅C  o tamanho de cada patch achatado. Cada patch tem P2 pixels, e cada pixel tem C canais de cor, então o tamanho do vetor resultante é o produto desses dois.
+
+### Exemplo:
+Imagine uma imagem de 224x224 pixels com 3 canais (RGB). Se você escolher patches de 16x16 pixels, você terá (224*224)/(16*16) = 196 patches. Cada patch achatado terá 16*16*3 = 768 elementos.
+
+![image](https://github.com/user-attachments/assets/f17b99f5-3a1d-485e-a837-c5e1ac288b17)
+
+### Incorporação (Embedding) dos patches
+
+### Tamanho do vetor latente D:
+O Transformer trabalha com vetores de um tamanho fixo, chamado de tamanho do vetor latente, representado por D. Este valor é constante em todas as camadas do Transformer.
+
+### Projeção Linear:
+
+Os patches achatados, que têm tamanho P2⋅C, precisam ser transformados para esse tamanho D. Isso é feito através de uma projeção linear treinável. Em termos matemáticos, isso pode ser representado como:
+- ​Embedding =p⋅W+b
+
+  onde:
+- W é uma matriz de pesos de tamanho (P2⋅C)×D .Esta matriz é treinada durante o aprendizado do modelo.
+- b é um vetor de bias (viés) de tamanho D.
+ Incorporações de patch: O resultado dessa projeção é chamado de "incorporação de patch". Cada patch agora é representado por um vetor de tamanho D, adequado para entrada no Transformer.
+
+Juntando tudo:
+
+```
+# Setup hyperparameters and make sure img_size and patch_size are compatible
+img_size = 224
+patch_size = 16
+num_patches = img_size/patch_size
+assert img_size % patch_size == 0, "Image size must be divisible by patch size"
+print(f"Number of patches per row: {num_patches}\
+        \nNumber of patches per column: {num_patches}\
+        \nTotal patches: {num_patches*num_patches}\
+        \nPatch size: {patch_size} pixels x {patch_size} pixels")
+
+# Create a series of subplots
+fig, axs = plt.subplots(nrows=img_size // patch_size, # need int not float
+                        ncols=img_size // patch_size,
+                        figsize=(num_patches, num_patches),
+                        sharex=True,
+                        sharey=True)
+
+# Loop through height and width of image
+for i, patch_height in enumerate(range(0, img_size, patch_size)): # iterate through height
+    for j, patch_width in enumerate(range(0, img_size, patch_size)): # iterate through width
+
+        # Plot the permuted image patch (image_permuted -> (Height, Width, Color Channels))
+        axs[i, j].imshow(image_permuted[patch_height:patch_height+patch_size, # iterate through height
+                                        patch_width:patch_width+patch_size, # iterate through width
+                                        :]) # get all color channels
+
+        # Set up label information, remove the ticks for clarity and set labels to outside
+        axs[i, j].set_ylabel(i+1,
+                             rotation="horizontal",
+                             horizontalalignment="right",
+                             verticalalignment="center")
+        axs[i, j].set_xlabel(j+1)
+        axs[i, j].set_xticks([])
+        axs[i, j].set_yticks([])
+        axs[i, j].label_outer()
+
+# Set a super title
+fig.suptitle(f"{class_names[label]} -> Patchified", fontsize=16)
+plt.show()
+```
 
 
 
-
-
-
-
-
-
-
-<img alt="example of creating a patch embedding by passing a convolutional layer over a single image" src="https://github.com/mrdbourke/pytorch-deep-learning/raw/main/images/08-vit-paper-patch-embedding-animation.gif" width="900" _msthidden="A" _mstalt="4690543" _msthash="3251">
 
 
 
