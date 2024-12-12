@@ -8,11 +8,7 @@ Neste blog, analisamos o trabalho pioneiro "Uma imagem vale 16x16 palavras: tran
 
 O Vision Transformer (ViT) é uma arquitetura de rede neural de aprendizado profundo. Vamos entender como ele funciona:
 
-- Camada: Uma camada recebe uma entrada (como uma imagem), executa uma função nela (por exemplo, uma transformação matemática) e retorna uma saída.
-  
-- Bloco: Um bloco é uma coleção de camadas. Ele recebe uma entrada, passa por várias camadas que executam diferentes funções e retorna uma saída.
-- 
-- Arquitetura (ou modelo): A arquitetura é uma coleção de blocos. Ela recebe uma entrada, passa por vários blocos que executam uma série de funções e retorna uma saída.
+Uma arquitetura moderna de aprendizado profundo geralmente é uma coleção de camadas e blocos. Onde as camadas pegam uma entrada (dados como uma representação numérica) e a manipulam usando algum tipo de função (por exemplo, a fórmula de autoatenção mostrada logo abaixo, no entanto, essa função pode ser quase qualquer coisa) e, em seguida, a produzem. Os blocos geralmente são pilhas de camadas umas sobre as outras, fazendo algo semelhante a uma única camada, mas várias vezes.
 
 ![image](https://github.com/user-attachments/assets/18ae4852-74da-47c8-bd8e-b734d05cba5d)
 
@@ -20,17 +16,6 @@ O Vision Transformer (ViT) é uma arquitetura de rede neural de aprendizado prof
 
 
 
-
-
-
-Vamos começar examinando a Figura 1 do ViT Paper.
-
-As principais coisas às quais prestaremos atenção são:
-
-Camadas - recebe uma entrada, executa uma operação ou função na entrada, produz uma saída.
-Blocos - uma coleção de camadas, que por sua vez também recebe uma entrada e produz uma saída.
-
-![image](https://github.com/user-attachments/assets/4c96d4c4-9287-461f-8c66-933ef74a7464)
 
 
 
