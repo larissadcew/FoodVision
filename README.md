@@ -10,8 +10,14 @@ Uma arquitetura moderna de aprendizado profundo geralmente é uma coleção de c
 
 ![image](https://github.com/user-attachments/assets/18ae4852-74da-47c8-bd8e-b734d05cba5d)
 
-Camadas - recebe uma entrada, executa uma operação ou função na entrada, produz uma saída
-Blocos - uma coleção de camadas, que por sua vez também recebe uma entrada e produz uma saída.
+Vamos começar examinando a Figura 1 do ViT Paper
+
+Explorando a Figura 1
+As principais coisas às quais prestaremos atenção são:
+
+- Camadas - recebe uma entrada, executa uma operação ou função na entrada, produz uma saída
+- Blocos  - uma coleção de camadas, que por sua vez também recebe uma entrada e produz uma saída.
+  
 ![image](https://github.com/user-attachments/assets/5223448b-4fe6-4b75-b940-e2367458dfbb)
 
 # visao geral da arquitetura vit: 
@@ -41,94 +47,11 @@ A seção 3.1 descreve cada um deles (parte do texto foi omitido por brevidade, 
 
 (4):Semelhante ao token [ class ] do BERT, precedemos uma incorporação que pode ser aprendida na sequência de patches incorporados $\left(\mathbf{z}_{0}^{0}=\mathbf{x}_{\text {class }}\right)$, cujo estado na saída do codificador Transformer $\left(\mathbf{z}_{L}^{0}\right)$ serve como a representação da imagem $\mathbf{y}$ (Eq. 4)..
 
-### Vamos mostrrar como isso se apica :
+### Layernorm (LN) é aplicado antes de cada bloco e conexões residuais após cada bloco. O MLP contém duas camadas com uma não linearidade GELU.
+![image](https://github.com/user-attachments/assets/1ac0382a-b603-4835-8a7e-437c3ecf57f4)
 
-![image](https://github.com/user-attachments/assets/f5242bc7-8e81-4e4e-9175-2c76fb421f0f)
-
-
-Conectando a Figura 1 do artigo ViT às quatro equações da seção 3.1 que descrevem a matemática por trás de cada uma das camadas / blocos.
-Há muita coisa acontecendo na imagem acima, mas seguir as linhas coloridas e setas revela os principais conceitos da arquitetura ViT.
-
-
-# Visão geral da equação 2:
-
-Isso diz que para cada camada de $1$ a $L$ (o número total de camadas), há uma camada de atenção de várias cabeças (MSA) envolvendo uma camada LayerNorm (LN).
-
-A adição no final é o equivalente a adicionar a entrada à saída e formar uma conexão de salto / residual.
-
-No pseudocódigo, isso pode ser semelhante a:
-x_output_MSA_block = MSA_layer(LN_layer(x_input)) + x_input
-
-Observe a conexão de salto no final (adicionando a entrada das camadas à saída das camadas).
-
-# Visão geral da equação 3:
-
-Isso diz que para cada camada de $1$ a $L$ (o número total de camadas), há também uma camada Multilayer Perceptron (MLP) envolvendo uma camada LayerNorm (LN).
-
-A adição no final mostra a presença de uma conexão de salto / residual.
-
-Chamaremos essa camada de "bloco MLP".
-
-No pseudocódigo, isso pode ser semelhante a:
-
-x_output_MLP_block = MLP_layer(LN_layer(x_output_MSA_block)) + x_output_MSA_block
-
-# Visão geral da equação 4:
-
-Isso diz que para a última camada $L$, a saída $y$ é o token de índice 0 de $z$ encapsulado em uma camada LayerNorm (LN).
-
-Ou, no nosso caso, o índice 0 de :x_output_MLP_block
-
-y = Linear_layer(LN_layer(x_output_MLP_block[0]))
-
-É claro que existem algumas simplificações acima, mas cuidaremos delas quando começarmos a escrever o código PyTorch para cada seção.
-
-# Entendendo os Hiperparâmetros:
-![image](https://github.com/user-attachments/assets/3b4624c3-cf43-447f-9901-1200058426cd)
-
-# Comparando as Variantes ViT
-
-![image](https://github.com/user-attachments/assets/3fa40379-eb07-4fa3-bc30-731e51da92df)
-
- Ao movermos de ViT-Base para ViT-Enorme, observamos um aumento gradual em todos os hiperparâmetros. Isso indica que o modelo está sendo escalado para lidar com tarefas mais complexas e conjuntos de dados maiores.Aumentar o número de camadas, o tamanho oculto e o número de cabeças geralmente leva a um melhor desempenho, mas também aumenta o custo computacional e o risco de overfitting. É importante encontrar um equilíbrio entre esses fatores.O ViT-Base é um bom ponto de partida para experimentos, pois oferece um bom equilíbrio entre desempenho e complexidade.
-
-# Equação 1: Divida os dados em patches e crie a classe, posição e incorporação de patch.
-
-Na forma vetorial, a incorporação pode ser algo como:
-
-x_input = [class_token, image_patch_1, image_patch_2, image_patch_3...] + [class_token_position, image_patch_1_position, image_patch_2_position, image_patch_3_position...]
-
-Vamos começar criando as incorporações de classe, posição e patch para a arquitetura ViT.Começaremos com a incorporação do patch.Isso significa que transformaremos nossas imagens de entrada em uma sequência de patches e, em seguida, incorporaremos esses patches.Lembre-se de que uma incorporação é uma representação que pode ser aprendida de alguma forma e geralmente é um vetor.O termo aprendível é importante porque significa que a representação numérica de uma imagem de entrada (que o modelo vê) pode ser melhorada ao longo do tempo.Começaremos seguindo o parágrafo de abertura da seção 3.1 do artigo ViT (negrito meu):
-
-O Transformer padrão recebe como entrada uma sequência 1D de incorporações de tokens. Para lidar com imagens 2D, remodelamos a imagem  x∈ RH×W×C em uma sequência de patches 2D achatados xp ∈ RN×(P2⋅C), onde (H,W) é a resolução da imagem original, C é o número de canais,(P,P)  é a resolução de cada patch de imagem e N =HW/P2 é o número resultante de patches, que também serve como o comprimento efetivo da sequência de entrada para o Transformer. O Transformer usa tamanho de vetor latente constante D em todas as suas camadas, então nivelamos os patches e mapeamos para dimensões de D com uma projeção linear treinável (Eq. 1). Referimo-nos à saída dessa projeção como as incorporações de patch. 
-
-
-
-
-![image](https://github.com/user-attachments/assets/d5dd3743-5893-43a0-8413-4ad794511a19)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+Os modelos "Base" e "Large" são adotados diretamente do BERT e o modelo "Huge" maior é adicionado
+ViT-L/16 significa a variante "Grande" com tamanho de patch de entrada 16×16. Observe que o comprimento da sequência do Transformer é inversamente proporcional ao quadrado do tamanho do patch, e os modelos com tamanho de patch menor são computacionalmente mais caros.
 
 
 
