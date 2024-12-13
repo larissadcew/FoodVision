@@ -55,16 +55,25 @@ Os modelos "Base" e "Large" são adotados diretamente do BERT e o modelo "Huge" 
 ViT-L/16 significa a variante "Grande" com tamanho de patch de entrada 16×16. Observe que o comprimento da sequência do Transformer é inversamente proporcional ao quadrado do tamanho do patch, e os modelos com tamanho de patch menor são computacionalmente mais caros.
 
 ### Equação 1:
+![image](https://github.com/user-attachments/assets/3eed1cb4-5019-4ad5-924b-3ed607da3b2a)
 
 ### Equação 2:
+![image](https://github.com/user-attachments/assets/f3b5e4cb-ba69-44fd-8ab8-04277bf9829b)
+
+
 
 ### Equação 3:
+![image](https://github.com/user-attachments/assets/669d563b-6335-417f-b7cb-00a2ffe7c5b8)
+
 
 ### Equação 4:
+![image](https://github.com/user-attachments/assets/c3757e04-a589-4973-ab23-2145c2757bdd)
+
 
 ### Crie o codificador do transformador:
 
-### Juntando tudo para criar o ViT:
+### Juntando tudo para criar o ViT
+Food Vision
 
 
 ### Criando um otimizador:
@@ -91,7 +100,7 @@ Pelo menos a perda parece estar indo na direção certa, mas as curvas de precis
 Esses resultados provavelmente se devem à diferença nos recursos de dados e no regime de treinamento de nosso modelo ViT em relação ao artigo ViT
 Que tal vermos se podemos consertar isso trazendo um modelo ViT pré-treinado?
 
-### O que está faltando em nossa configuração de treinamento:
+### Porque um modelo pretreinado:
 
 Embora nossa arquitetura ViT seja a mesma do artigo, os resultados do artigo ViT foram alcançados usando muito mais dados e um esquema de treinamento mais elaborado do que o nosso.
 Devido ao tamanho da arquitetura ViT e seu alto número de parâmetros (maior capacidade de aprendizado) e quantidade de dados que ela usa (aumento das oportunidades de aprendizado), muitas das técnicas usadas no esquema de treinamento em papel ViT, como aquecimento da taxa de aprendizado, decaimento da taxa de aprendizado e recorte de gradiente, são projetadas especificamente para evitar o sobreajuste (regularização).
