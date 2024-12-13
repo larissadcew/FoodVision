@@ -29,7 +29,8 @@ As principais coisas às quais prestaremos atenção são:
 - MLP (ou perceptron multicamada) - Um MLP geralmente pode se referir a qualquer coleção de camadas feedforward (ou, no caso do PyTorch, uma coleção de camadas com um método). No ViT Paper, os autores se referem ao MLP como "bloco MLP" e contém duas camadas torch.nn.Linear() com uma ativação de não linearidade torch.nn.GELU() entre elas (seção 3.1) e uma camada torch.nn.Dropout() após cada uma (Apêndice B.1).forward()
 - Transformer Encoder - O Transformer Encoder é uma coleção das camadas listadas acima. Existem duas conexões de salto dentro do codificador Transformer (os símbolos "+"), o que significa que as entradas da camada são alimentadas diretamente para as camadas imediatas, bem como para as camadas subsequentes. A arquitetura ViT geral é composta por vários codificadores Transformer empilhados uns sobre os outros.
 - MLP Head - Esta é a camada de saída da arquitetura, ela converte os recursos aprendidos de uma entrada em uma saída de classe. Como estamos trabalhando na classificação de imagens, você também pode chamar isso de "cabeça do classificador". A estrutura do MLP Head é semelhante ao bloco MLP.
-- 
+
+Você pode notar que muitas das partes da arquitetura ViT podem ser criadas com camadas PyTorch existentes 
 
   # Explorando as Quatro Equações:
   ![image](https://github.com/user-attachments/assets/a83ec89e-98be-4953-bd12-f38fe06e7352)
@@ -52,6 +53,54 @@ A seção 3.1 descreve cada um deles (parte do texto foi omitido por brevidade, 
 
 Os modelos "Base" e "Large" são adotados diretamente do BERT e o modelo "Huge" maior é adicionado
 ViT-L/16 significa a variante "Grande" com tamanho de patch de entrada 16×16. Observe que o comprimento da sequência do Transformer é inversamente proporcional ao quadrado do tamanho do patch, e os modelos com tamanho de patch menor são computacionalmente mais caros.
+
+### Equação 1:
+
+### Equação 2:
+
+### Equação 3:
+
+### Equação 4:
+
+### Crie o codificador do transformador:
+
+### Juntando tudo para criar o ViT:
+
+
+### Criando um otimizador:
+
+Pesquisando o artigo ViT por "otimizador", a seção 4.1 sobre Treinamento e Ajuste Fino afirma:
+Treinamento & Ajuste Fino. Treinamos todos os modelos, incluindo ResNets, usando Adam (Kingma & Ba, 2015) com $\beta_{1}=0,9, \beta_{2}=0,999$, um tamanho de lote de 4096 e aplicamos um decaimento de peso alto de $0,1$, que descobrimos ser útil para a transferência de todos os modelos (o Apêndice D.1 mostra que, em contraste com as práticas comuns, Adam funciona um pouco melhor do que o SGD para ResNets em nosso ambiente).
+
+
+Portanto, podemos ver que eles escolheram usar o otimizador "Adam" (torch.optim.Adam()) em vez de SGD (gradiente descendente estocástico, torch.optim.SGD()).
+Criando uma função de perda:
+
+
+### Treinando nosso modelo ViT:
+
+Ok, agora que sabemos qual otimizador e função de perda vamos usar, vamos configurar o código de treinamento para treinar nosso ViT.
+Começaremos importando o script e, em seguida, configuraremos o otimizador e a função de perda e, finalmente, usaremos a função de para treinar nosso modelo ViT por 10 épocas (estamos usando um número menor de épocas do que o artigo ViT para garantir que tudo funcione).
+
+### Plotar as curvas de perda do nosso modelo ViT:
+
+![image](https://github.com/user-attachments/assets/0470e29e-8c80-4765-af7d-2b3c7ab160d3)
+
+Pelo menos a perda parece estar indo na direção certa, mas as curvas de precisão não são muito promissoras.
+
+Esses resultados provavelmente se devem à diferença nos recursos de dados e no regime de treinamento de nosso modelo ViT em relação ao artigo ViT
+Que tal vermos se podemos consertar isso trazendo um modelo ViT pré-treinado?
+
+### O que está faltando em nossa configuração de treinamento:
+
+Embora nossa arquitetura ViT seja a mesma do artigo, os resultados do artigo ViT foram alcançados usando muito mais dados e um esquema de treinamento mais elaborado do que o nosso.
+Devido ao tamanho da arquitetura ViT e seu alto número de parâmetros (maior capacidade de aprendizado) e quantidade de dados que ela usa (aumento das oportunidades de aprendizado), muitas das técnicas usadas no esquema de treinamento em papel ViT, como aquecimento da taxa de aprendizado, decaimento da taxa de aprendizado e recorte de gradiente, são projetadas especificamente para evitar o sobreajuste (regularização).
+A boa notícia é que existem muitos modelos ViT pré-treinados (usando grandes quantidades de dados) disponíveis online.
+
+## usando um modelo preteinado:
+
+
+
 
 
 
