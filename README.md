@@ -88,10 +88,135 @@ Podemos recriá-los com torch.nn.Conv2d() por transformar nossa imagem em patche
 
 ### Equação 1.3 Achatando o patch incorporado:
 
+Lendo a seção 3.1 do artigo ViT, diz (negrito meu):
+
+Como um caso especial, os patches podem ter tamanho espacial $1 \times 1$, o que significa que a sequência de entrada é obtida simplesmente nivelando as dimensões espaciais do mapa de recursos e projetando para a dimensão Transformer
+
+Que camada temos no PyTorch que pode ser achatada?
+
+Que tal torch.nn.Flatten()?
+
+Mas não queremos achatar todo o tensor, queremos apenas achatar as "dimensões espaciais do mapa de recursos
+
+### Equação 1.3 AJuntando tudo:
+
+- Tire uma única imagem.
+- Coloque através da camada convolucional () para transformar a imagem em mapas de recursos 2D (incorporações de patch).conv2d
+- Nivele o mapa de feição 2D em uma única sequência.
+
+  ```
+  # 1. View single image
+plt.imshow(image.permute(1, 2, 0)) # adjust for matplotlib
+plt.title(class_names[label])
+plt.axis(False);
+print(f"Original image shape: {image.shape}")
+
+# 2. Turn image into feature maps
+image_out_of_conv = conv2d(image.unsqueeze(0)) # add batch dimension to avoid shape errors
+print(f"Image feature map shape: {image_out_of_conv.shape}")
+
+# 3. Flatten the feature maps
+image_out_of_conv_flattened = flatten(image_out_of_conv)
+print(f"Flattened image feature map shape: {image_out_of_conv_flattened.shape}")
+  ```
+### Equação 1.4 Transformando a camada de incorporação de patch ViT:
+
+É hora de colocar tudo o que fizemos para criar a incorporação do patch em uma única camada do PyTorch.
+Podemos fazer isso subclassificando e criando um pequeno "modelo" PyTorch para executar todas as etapas acima.nn.Module
+
+Especificamente, vamos:
+
+- Crie uma classe chamada which subclasses (para que possa ser usada uma camada PyTorch).PatchEmbeddingnn.Module
+- Inicialize a classe com os parâmetros , (para ViT-Base) e (isso é $D$ para ViT-Base da Tabela 1).in_channels=3patch_size=16embedding_dim=768
+- Crie uma camada para transformar uma imagem em patches usando (assim como em 4.3 acima).nn.Conv2d()
+- Crie uma camada para achatar os mapas de feição de patch em uma única dimensão (assim como na versão 4.4 acima).
+- Defina um método para pegar uma entrada e passá-la pelas camadas criadas em 3 e 4.forward()
+
+Certifique-se de que a forma de saída reflita a forma de saída necessária da arquitetura ViT (${N \times\left(P^{2} \cdot C\right)}$)
+
+```
+# 1. Create a class which subclasses nn.Module
+class PatchEmbedding(nn.Module):
+    """Turns a 2D input image into a 1D sequence learnable embedding vector.
+
+    Args:
+        in_channels (int): Number of color channels for the input images. Defaults to 3.
+        patch_size (int): Size of patches to convert input image into. Defaults to 16.
+        embedding_dim (int): Size of embedding to turn image into. Defaults to 768.
+    """
+    # 2. Initialize the class with appropriate variables
+    def __init__(self,
+                 in_channels:int=3,
+                 patch_size:int=16,
+                 embedding_dim:int=768):
+        super().__init__()
+
+        # 3. Create a layer to turn an image into patches
+        self.patcher = nn.Conv2d(in_channels=in_channels,
+                                 out_channels=embedding_dim,
+                                 kernel_size=patch_size,
+                                 stride=patch_size,
+                                 padding=0)
+
+        # 4. Create a layer to flatten the patch feature maps into a single dimension
+        self.flatten = nn.Flatten(start_dim=2, # only flatten the feature map dimensions into a single vector
+                                  end_dim=3)
+
+    # 5. Define the forward method
+    def forward(self, x):
+        # Create assertion to check that inputs are the correct shape
+        image_resolution = x.shape[-1]
+        assert image_resolution % patch_size == 0, f"Input image size must be divisible by patch size, image shape: {image_resolution}, patch size: {patch_size}"
+
+        # Perform the forward pass
+        x_patched = self.patcher(x)
+        x_flattened = self.flatten(x_patched)
+        # 6. Make sure the output shape has the right order
+        return x_flattened.permute(0, 2, 1) # adjust so the embedding is on the final dimension [batch_size, P^2•C, N] -> [batch_size, N, P^2•C]
+```
+Entrada: A imagem começa como 2D com tamanho ${H \times W \times C}$.
+Saída: A imagem é convertida em uma sequência 1D de patches 2D achatados com tamanho ${N \times\left(P^{2} \cdot C\right)}$.
+
+![image](https://github.com/user-attachments/assets/a9384458-5354-42d9-bc86-c863f9e29f61)
+
+Nossa classe PatchEmbedding (à direita) replica a incorporação de patch da arquitetura ViT da Figura 1 e a Equação 1 do artigo ViT (à esquerda). No entanto, a incorporação de classe que pode ser aprendida e as incorporações de posição ainda não foram criadas. Estes virão em breve.
+
+### Equação 1.2 Criando a incorporação de token de classe
+
+![image](https://github.com/user-attachments/assets/000d73da-0911-4671-b059-2125ad1e6aad)
+
+Esquerda: Figura 1 do artigo ViT com o "token de classificação" ou token de incorporação [classe] que vamos recriar destacado. Direita: Equação 1 e seção 3.1 do artigo ViT que se relacionam com o token de incorporação de classe que pode ser aprendido
+
+Lendo o segundo parágrafo da seção 3.1 do artigo ViT, vemos a seguinte descrição:
+
+Semelhante ao token do BERT, precedemos uma incorporação que pode ser aprendida na sequência de patches incorporados $\left(\mathbf{z}_{0}^{0}=\mathbf{x}_{\text {class }}\right)$, cujo estado na saída do codificador Transformer $\left(\mathbf{z}_{L}^{0}\right)$ serve como a representação da imagem $\mathbf{y}$ (Eq. 4).[ class ]
+
+Nota: BERT (Bidirectional Encoder Representations from Transformers) é um dos artigos de pesquisa originais de aprendizado de máquina para usar a arquitetura Transformer para obter resultados excelentes em tarefas de processamento de linguagem natural (NLP) e é onde a ideia de ter um token no início de uma sequência se originou, classe sendo uma descrição para a classe de "classificação" à qual a sequência pertencia.[ class ]
+
+Portanto, precisamos "antecipar uma incorporação que pode ser aprendida na sequência de patches incorporados
 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
 
 ![image](https://github.com/user-attachments/assets/17e8dfe0-8d5e-4b68-97e6-7a54c4994c66)
 
