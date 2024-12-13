@@ -42,19 +42,11 @@ A seção 3.1 descreve cada um deles (parte do texto foi omitido por brevidade, 
 (4):Semelhante ao token [ class ] do BERT, precedemos uma incorporação que pode ser aprendida na sequência de patches incorporados $\left(\mathbf{z}_{0}^{0}=\mathbf{x}_{\text {class }}\right)$, cujo estado na saída do codificador Transformer $\left(\mathbf{z}_{L}^{0}\right)$ serve como a representação da imagem $\mathbf{y}$ (Eq. 4)..
 
 Vamos mostrrar como isso se apica :
+
 ![image](https://github.com/user-attachments/assets/f5242bc7-8e81-4e4e-9175-2c76fb421f0f)
 Conectando a Figura 1 do artigo ViT às quatro equações da seção 3.1 que descrevem a matemática por trás de cada uma das camadas / blocos.
 Há muita coisa acontecendo na imagem acima, mas seguir as linhas coloridas e setas revela os principais conceitos da arquitetura ViT.
 
-# DIVIDINDO as 4 equaçoes ainda MAIS:
-
-# Visão geral da equação 1:
-
-Esta equação lida com o token de classe, a incorporação de patch e a incorporação de posição ($\mathbf{E}$ é para incorporação) da imagem de entrada.
-
-Na forma vetorial, a incorporação pode ser algo como
-
-x_input = [class_token, image_patch_1, image_patch_2, image_patch_3...] + [class_token_position, image_patch_1_position, image_patch_2_position, image_patch_3_position...]
 
 # Visão geral da equação 2:
 
@@ -89,133 +81,26 @@ y = Linear_layer(LN_layer(x_output_MLP_block[0]))
 
 É claro que existem algumas simplificações acima, mas cuidaremos delas quando começarmos a escrever o código PyTorch para cada seção.
 
+# Entendendo os Hiperparâmetros:
+![image](https://github.com/user-attachments/assets/3b4624c3-cf43-447f-9901-1200058426cd)
 
-# Explorando a Tabela 1(None)
+# Comparando as Variantes ViT
+
+![image](https://github.com/user-attachments/assets/3fa40379-eb07-4fa3-bc30-731e51da92df)
+
+ Ao movermos de ViT-Base para ViT-Enorme, observamos um aumento gradual em todos os hiperparâmetros. Isso indica que o modelo está sendo escalado para lidar com tarefas mais complexas e conjuntos de dados maiores.Aumentar o número de camadas, o tamanho oculto e o número de cabeças geralmente leva a um melhor desempenho, mas também aumenta o custo computacional e o risco de overfitting. É importante encontrar um equilíbrio entre esses fatores.O ViT-Base é um bom ponto de partida para experimentos, pois oferece um bom equilíbrio entre desempenho e complexidade.
 
 # Equação 1: Divida os dados em patches e crie a classe, posição e incorporação de patch.
 
+Na forma vetorial, a incorporação pode ser algo como:
 
-Começaremos com a incorporação do patch.Isso significa que transformaremos nossas imagens de entrada em uma sequência de patches e, em seguida, incorporaremos esses patches.
-Lembre-se de que uma incorporação é uma representação que pode ser aprendida de alguma forma e geralmente é um vetor.O termo aprendível é importante porque significa que a representação numérica de uma imagem de entrada (que o modelo vê) pode ser melhorada ao longo do tempo.
+x_input = [class_token, image_patch_1, image_patch_2, image_patch_3...] + [class_token_position, image_patch_1_position, image_patch_2_position, image_patch_3_position...]
 
-Essa técnica permite que um modelo Transformer, originalmente projetado para processar sequências 1D (como texto), trabalhe com dados 2D (imagens) ao converter a imagem em uma sequência de vetores que representam partes menores da imagem.
+vamos começar criando as incorporações de classe, posição e patch para a arquitetura ViT.Começaremos com a incorporação do patch.Isso significa que transformaremos nossas imagens de entrada em uma sequência de patches e, em seguida, incorporaremos esses patches.Lembre-se de que uma incorporação é uma representação que pode ser aprendida de alguma forma e geralmente é um vetor.O termo aprendível é importante porque significa que a representação numérica de uma imagem de entrada (que o modelo vê) pode ser melhorada ao longo do tempo.Começaremos seguindo o parágrafo de abertura da seção 3.1 do artigo ViT (negrito meu):
 
-Começaremos seguindo o parágrafo de abertura da seção 3.1 do artigo ViT (negrito meu):
+O Transformer padrão recebe como entrada uma sequência 1D de incorporações de tokens. Para lidar com imagens 2D, remodelamos a imagem $\mathbf{x} \in \mathbb{R}^{H \times W \times C}$ em uma sequência de patches 2D achatados $\mathbf{x}_{p} \in \mathbb{R}^{N \times\left(P^{2} \cdot C\right)}$, onde $(H, W)$ é a resolução da imagem original, $C$ é o número de canais, $(P, P)$ é a resolução de cada patch de imagem e $N=H W / P^{2}$ é o número resultante de patches, que também serve como o comprimento efetivo da sequência de entrada para o Transformer. O Transformer usa tamanho de vetor latente constante $D$ em todas as suas camadas, então nivelamos os patches e mapeamos para dimensões de $D$ com uma projeção linear treinável (Eq. 1). Referimo-nos à saída dessa projeção como as incorporações de patch.
 
-```
-O Transformer padrão recebe como entrada uma sequência 1D de incorporações de tokens. Para lidar com imagens 2D, remodelamos a imagem $\mathbf{x} \in \mathbb{R}^{H \times W \times C}$ em uma sequência de patches 2D achatados $\mathbf{x}_{p} \in \mathbb{R}^{N \times\left(P^{2} \cdot C\right)}$, onde $(H, W)$ é a resolução da imagem original, $C$ é o número de canais, $(P, P)$ é a resolução de cada patch de imagem e $N=H W / P^{2}$ é o número resultante de patches, que também serve como o comprimento efetivo da sequência de entrada para o Transformer. O Transformer usa tamanho de vetor latente constante $D$ em todas as suas camadas, então nivelamos os patches e mapeamos para dimensões de $D$ com uma projeção linear treinável (Eq. 1). Referimo-nos à saída dessa projeção como as incorporações de patch
-```
 E tamanho estamos lidando com formas de imagem, vamos ter em mente a linha da Tabela 3 do artigo ViT:
-```
-A resolução do treinamento é 224.
-
-```
-Detalhando todas as partes:
-
-Você começa com uma imagem representada por x ∈ RH×W×C,onde:
-- H é a altura da imagem em pixels.
-- W é a largura da imagem em pixels.
-- C é o número de canais de cor (ex: 3 para RGB)
-  
-### Dividindo em patches:
-
-Ao invés de tratar a imagem inteira como uma única entrada, ela é dividida em pequenos pedaços quadrados chamados patches. Cada patch tem resolução.
-
-### Criando a sequência:
-Esses patches 2D são então "achatados" em vetores 1D. Imagine pegar cada quadrado e esticar seus pixels em uma linha. Isso resulta em xp ∈ Rn×(P2⋅C),onde:
-
-- N = HW/P2  é o número total de patches. Como a imagem original tem H×W pixels e cada patch tem P×P pixels, o número de patches é a divisão da área total pela área de cada patch.
-- P2⋅C  o tamanho de cada patch achatado. Cada patch tem P2 pixels, e cada pixel tem C canais de cor, então o tamanho do vetor resultante é o produto desses dois.
-
-### Exemplo:
-Imagine uma imagem de 224x224 pixels com 3 canais (RGB). Se você escolher patches de 16x16 pixels, você terá (224*224)/(16*16) = 196 patches. Cada patch achatado terá 16*16*3 = 768 elementos.
-
-![image](https://github.com/user-attachments/assets/f17b99f5-3a1d-485e-a837-c5e1ac288b17)
-
-### Incorporação (Embedding) dos patches
-
-### Tamanho do vetor latente D:
-O Transformer trabalha com vetores de um tamanho fixo, chamado de tamanho do vetor latente, representado por D. Este valor é constante em todas as camadas do Transformer.
-
-### Projeção Linear:
-
-Os patches achatados, que têm tamanho P2⋅C, precisam ser transformados para esse tamanho D. Isso é feito através de uma projeção linear treinável. Em termos matemáticos, isso pode ser representado como:
-- ​Embedding =p⋅W+b
-
-  onde:
-- W é uma matriz de pesos de tamanho (P2⋅C)×D .Esta matriz é treinada durante o aprendizado do modelo.
-- b é um vetor de bias (viés) de tamanho D.
- Incorporações de patch: O resultado dessa projeção é chamado de "incorporação de patch". Cada patch agora é representado por um vetor de tamanho D, adequado para entrada no Transformer.
-
-### implemetaçao com codigo
-
-1.
-
-```
-# Setup hyperparameters and make sure img_size and patch_size are compatible
-img_size = 224
-patch_size = 16
-num_patches = img_size/patch_size
-assert img_size % patch_size == 0, "Image size must be divisible by patch size"
-print(f"Number of patches per row: {num_patches}\
-        \nNumber of patches per column: {num_patches}\
-        \nTotal patches: {num_patches*num_patches}\
-        \nPatch size: {patch_size} pixels x {patch_size} pixels")
-
-# Create a series of subplots
-fig, axs = plt.subplots(nrows=img_size // patch_size, # need int not float
-                        ncols=img_size // patch_size,
-                        figsize=(num_patches, num_patches),
-                        sharex=True,
-                        sharey=True)
-
-# Loop through height and width of image
-for i, patch_height in enumerate(range(0, img_size, patch_size)): # iterate through height
-    for j, patch_width in enumerate(range(0, img_size, patch_size)): # iterate through width
-
-        # Plot the permuted image patch (image_permuted -> (Height, Width, Color Channels))
-        axs[i, j].imshow(image_permuted[patch_height:patch_height+patch_size, # iterate through height
-                                        patch_width:patch_width+patch_size, # iterate through width
-                                        :]) # get all color channels
-
-        # Set up label information, remove the ticks for clarity and set labels to outside
-        axs[i, j].set_ylabel(i+1,
-                             rotation="horizontal",
-                             horizontalalignment="right",
-                             verticalalignment="center")
-        axs[i, j].set_xlabel(j+1)
-        axs[i, j].set_xticks([])
-        axs[i, j].set_yticks([])
-        axs[i, j].label_outer()
-
-# Set a super title
-fig.suptitle(f"{class_names[label]} -> Patchified", fontsize=16)
-plt.show()
-```
-Vimos como uma imagem se parece quando ela é transformada em patche.
-![image](https://github.com/user-attachments/assets/165f1354-c6a8-4be6-b233-884369843244)
-
-# Criando patches de imagem com torch.nn.Conv2d()
-2.  
-
-s autores do artigo da ViT mencionam na seção 3.1 que a incorporação de patches é alcançável com uma rede neural convolucional (CNN):
-
-Para visualizar nossa imagem única, escrevemos código para percorrer as diferentes dimensões de altura e largura de uma única imagem e plotar patches individuais.
-Esta operação é muito semelhante à operação convolucional que vimos em 03. PyTorch Computer Vision seção 7.1: Percorrendo nn. Conv2d().
-
-
-Arquitetura híbrida. Como alternativa aos patches de imagem brutos, a sequência de entrada pode ser formada a partir de mapas de recursos de uma CNN (LeCun et al., 1989). Neste modelo híbrido, a projeção de incorporação de patch $\mathbf{E}$ (Eq. 1) é aplicada a patches extraídos de um mapa de recursos da CNN. Como um caso especial, os patches podem ter tamanho espacial $1 \times 1$, o que significa que a sequência de entrada é obtida simplesmente nivelando as dimensões espaciais do mapa de recursos e projetando para a dimensão Transformer. A incorporação de entrada de classificação e as incorporações de posição são adicionadas conforme descrito acima.
-
-O "mapa de recursos" a que eles se referem são os pesos / ativações produzidos por uma camada convolucional que passa sobre uma determinada imagem.
-
-Ao definir os parâmetros de kernel_size e passada de uma camada torch.nn.Conv2d() igual ao patch_size, podemos efetivamente obter uma camada que divide nossa imagem em patches e cria uma incorporação que pode ser aprendida (chamada de "Projeção Linear" no artigo ViT) de cada patch.
-
-<img alt="Exemplo de criação de uma incorporação de patch passando uma camada convolucional sobre uma única imagem" src="https://github.com/mrdbourke/pytorch-deep-learning/raw/main/images/08-vit-paper-patch-embedding-animation.gif" width="900" _mstalt="4690543" _msthash="609">
-
-Podemos recriá-los com:
-
-- torch.nn.Conv2d() para transformar nossa imagem em patches de mapas de recursos da CNN
-- torch.nn.Flatten() para nivelar as dimensões espaciais do mapa de recursos.
 
 
 
