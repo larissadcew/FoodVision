@@ -147,7 +147,9 @@ Os patches achatados, que têm tamanho P2⋅C, precisam ser transformados para e
 - b é um vetor de bias (viés) de tamanho D.
  Incorporações de patch: O resultado dessa projeção é chamado de "incorporação de patch". Cada patch agora é representado por um vetor de tamanho D, adequado para entrada no Transformer.
 
-Juntando tudo:
+### implemetaçao com codigo
+
+1.
 
 ```
 # Setup hyperparameters and make sure img_size and patch_size are compatible
@@ -190,6 +192,36 @@ for i, patch_height in enumerate(range(0, img_size, patch_size)): # iterate thro
 fig.suptitle(f"{class_names[label]} -> Patchified", fontsize=16)
 plt.show()
 ```
+Vimos como uma imagem se parece quando ela é transformada em patche.
+![image](https://github.com/user-attachments/assets/165f1354-c6a8-4be6-b233-884369843244)
+
+# Criando patches de imagem com torch.nn.Conv2d()
+2.  
+
+s autores do artigo da ViT mencionam na seção 3.1 que a incorporação de patches é alcançável com uma rede neural convolucional (CNN):
+
+Para visualizar nossa imagem única, escrevemos código para percorrer as diferentes dimensões de altura e largura de uma única imagem e plotar patches individuais.
+Esta operação é muito semelhante à operação convolucional que vimos em 03. PyTorch Computer Vision seção 7.1: Percorrendo nn. Conv2d().
+
+
+Arquitetura híbrida. Como alternativa aos patches de imagem brutos, a sequência de entrada pode ser formada a partir de mapas de recursos de uma CNN (LeCun et al., 1989). Neste modelo híbrido, a projeção de incorporação de patch $\mathbf{E}$ (Eq. 1) é aplicada a patches extraídos de um mapa de recursos da CNN. Como um caso especial, os patches podem ter tamanho espacial $1 \times 1$, o que significa que a sequência de entrada é obtida simplesmente nivelando as dimensões espaciais do mapa de recursos e projetando para a dimensão Transformer. A incorporação de entrada de classificação e as incorporações de posição são adicionadas conforme descrito acima.
+
+O "mapa de recursos" a que eles se referem são os pesos / ativações produzidos por uma camada convolucional que passa sobre uma determinada imagem.
+
+Ao definir os parâmetros de kernel_size e passada de uma camada torch.nn.Conv2d() igual ao patch_size, podemos efetivamente obter uma camada que divide nossa imagem em patches e cria uma incorporação que pode ser aprendida (chamada de "Projeção Linear" no artigo ViT) de cada patch.
+
+<img alt="Exemplo de criação de uma incorporação de patch passando uma camada convolucional sobre uma única imagem" src="https://github.com/mrdbourke/pytorch-deep-learning/raw/main/images/08-vit-paper-patch-embedding-animation.gif" width="900" _mstalt="4690543" _msthash="609">
+
+Podemos recriá-los com:
+
+- torch.nn.Conv2d() para transformar nossa imagem em patches de mapas de recursos da CNN
+- torch.nn.Flatten() para nivelar as dimensões espaciais do mapa de recursos.
+
+
+
+
+
+
 
 
 
